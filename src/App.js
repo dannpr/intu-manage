@@ -2,11 +2,12 @@ import './App.css';
 import React, { useState, useEffect } from 'react';
 import { Core } from "@walletconnect/core";
 import { Web3Wallet } from "@walletconnect/web3wallet";
-import { getSdkError } from '@walletconnect/utils'
 
+import { getSdkError } from '@walletconnect/utils';
+import { utils } from 'ethers';
 
 const core = new Core({
-  projectId: "966bc97b01b8e28008c9e28831317767",
+  projectId: "3d0441c30b03bdcd68ac95d412630808",
 });
 
 
@@ -27,11 +28,12 @@ function App() {
     }
 
     try {
+      console.log(core);
       const web3wallet = await Web3Wallet.init({
         core, // <- pass the shared `core` instance
         metadata,
       });
-      console.log(web3wallet);
+      console.log('it is init  : ', web3wallet);
       setClient(web3wallet);
     } catch (e) {
       console.log(e)
@@ -42,29 +44,48 @@ function App() {
   async function handleConnect() {
     if (!Client) throw Error("cannot connect, Client is not defined")
     try {
+      // set the wallet connect client
+      // you need to put in the namespace all of the cases possible to be used correctly
       const namespaces = {
         "eip155": {
-          "accounts": [
-            "eip155:5:0xab16a96d359ec26a11e2c2b3d8f8b8942d5bfcdb",
+          "accounts": ["eip155:5:0xab16a96d359ec26a11e2c2b3d8f8b8942d5bfcdb"],
+          "methods": [
+            "eth_sendTransaction",
+            "personal_sign",
+            "eth_sign",
+            "eth_signTransaction",
+            "eth_signTypedData",
+            "eth_signTypedData_v3",
+            "eth_signTypedData_v4"
           ],
-          "methods": ["eth_sendTransaction"],
-          "events": ["connect", "disconnect"]
+          "events": [
+            "chainChanged",
+            "accountsChanged",
+            "disconnect",
+            "connect",
+          ],
         }
       };
 
       Client.on("session_proposal", async (proposal) => {
+        const { params } = proposal
+        const { relays } = params
+
         // register session
         const session = await Client.approveSession({
           id: proposal.id,
+          relayProtocol: relays[0].protocol,
           namespaces,
         });
-        onSessionConnect(session);
-        const topic = session.topic.slice(9);
-        console.log(`Session approved: ${topic}`);
+
+        //onSessionConnect(session);
+        //const { topic } = session;
+        /*         const topic = session.topic.slice(9);
+         */        //console.log(`Session approved: ${topic}`);
       });
 
       // Here you can use the "text" state value in a function or pass it to a parent component
-      console.log(`You entered: ${uri}`);
+      // console.log(`You entered: ${uri}`);
 
       // pairing
       await Client.core.pairing.pair({ uri });
@@ -121,6 +142,43 @@ function App() {
       console.log(e);
     }
   }
+
+  async function handleSendTransaction() {
+    if (!Client) throw Error("cannot send transaction, Client is not defined")
+    try {
+
+      Client.on("session_request", async (event) => {
+        const { topic, params, id } = event;
+        const { request } = params;
+        const requestParamsMessage = request.params[0];
+
+        console.log(requestParamsMessage);
+
+        // convert `requestParamsMessage` by using a method like hexToUtf8
+        const message = utils.toUtf8String(requestParamsMessage);
+
+        // sign the message
+        // process of signing transaction link to intu
+        const signedMessage = await wallet.signMessage(message);
+
+        const response = {
+          id,
+          result: signedMessage,
+          jsonrpc: "2.0"
+        };
+
+        await Client.respondSessionRequest({
+          topic,
+          response
+        });
+
+      });
+    } catch (e) {
+      console.log(e);
+    }
+  }
+
+
 
   useEffect(() => {
     if (!Client) {
