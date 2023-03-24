@@ -28,12 +28,11 @@ function App() {
     }
 
     try {
-      console.log(core);
+      //console.log(core);
       const web3wallet = await Web3Wallet.init({
         core, // <- pass the shared `core` instance
         metadata,
       });
-      console.log('it is init  : ', web3wallet);
       setClient(web3wallet);
     } catch (e) {
       console.log(e)
@@ -46,46 +45,69 @@ function App() {
     try {
       // set the wallet connect client
       // you need to put in the namespace all of the cases possible to be used correctly
-      const namespaces = {
-        "eip155": {
-          "accounts": ["eip155:5:0xab16a96d359ec26a11e2c2b3d8f8b8942d5bfcdb"],
-          "methods": [
-            "eth_sendTransaction",
-            "personal_sign",
-            "eth_sign",
-            "eth_signTransaction",
-            "eth_signTypedData",
-            "eth_signTypedData_v3",
-            "eth_signTypedData_v4"
-          ],
-          "events": [
-            "chainChanged",
-            "accountsChanged",
-            "disconnect",
-            "connect",
-          ],
-        }
-      };
+      /*       const namespaces = {
+              "eip155": {
+                "accounts": ["eip155:5:0xab16a96d359ec26a11e2c2b3d8f8b8942d5bfcdb"],
+                "methods": [
+                  "eth_sendTransaction",
+                  "personal_sign",
+                  "eth_sign",
+                  "eth_signTransaction",
+                  "eth_signTypedData",
+                  "eth_signTypedData_v3",
+                  "eth_signTypedData_v4"
+                ],
+                "events": [
+                  "chainChanged",
+                  "accountsChanged",
+                  "disconnect",
+                  "connect",
+                ],
+              }
+            }; */
 
       Client.on("session_proposal", async (proposal) => {
+
+        console.log(proposal);
         const { params } = proposal
-        const { relays } = params
+        const { requiredNamespaces } = params;
+        const { eip155 } = requiredNamespaces;
+        const { methods, events } = eip155;
+
+        console.log("required namespace ", requiredNamespaces);
+        console.log("eip 155", eip155);
+        console.log("methods ", methods);
+        console.log("events", events);
+
+        const namespaces = {
+          "eip155": {
+            "accounts": [
+              "eip155:5:0xab16a96d359ec26a11e2c2b3d8f8b8942d5bfcdb"
+            ],
+            methods,
+            events,
+          }
+        };
+
+        console.log("namespace ", namespaces);
+
 
         // register session
         const session = await Client.approveSession({
           id: proposal.id,
-          relayProtocol: relays[0].protocol,
           namespaces,
         });
 
-        //onSessionConnect(session);
-        //const { topic } = session;
-        /*         const topic = session.topic.slice(9);
-         */        //console.log(`Session approved: ${topic}`);
+        onSessionConnect(session);
+        const { topic } = session;
+        const { pairingTopic } = session;
+
+        console.log(`pairing topic : ${pairingTopic}`);
+        console.log(`Session approved: ${topic}`);
       });
 
       // Here you can use the "text" state value in a function or pass it to a parent component
-      // console.log(`You entered: ${uri}`);
+      console.log(`You entered: ${uri}`);
 
       // pairing
       await Client.core.pairing.pair({ uri });
@@ -143,41 +165,41 @@ function App() {
     }
   }
 
-  async function handleSendTransaction() {
-    if (!Client) throw Error("cannot send transaction, Client is not defined")
-    try {
-
-      Client.on("session_request", async (event) => {
-        const { topic, params, id } = event;
-        const { request } = params;
-        const requestParamsMessage = request.params[0];
-
-        console.log(requestParamsMessage);
-
-        // convert `requestParamsMessage` by using a method like hexToUtf8
-        const message = utils.toUtf8String(requestParamsMessage);
-
-        // sign the message
-        // process of signing transaction link to intu
-        const signedMessage = await wallet.signMessage(message);
-
-        const response = {
-          id,
-          result: signedMessage,
-          jsonrpc: "2.0"
-        };
-
-        await Client.respondSessionRequest({
-          topic,
-          response
-        });
-
-      });
-    } catch (e) {
-      console.log(e);
-    }
-  }
-
+  /*  async function handleSendTransaction() {
+     if (!Client) throw Error("cannot send transaction, Client is not defined")
+     try {
+ 
+       Client.on("session_request", async (event) => {
+         const { topic, params, id } = event;
+         const { request } = params;
+         const requestParamsMessage = request.params[0];
+ 
+         console.log(requestParamsMessage);
+ 
+         // convert `requestParamsMessage` by using a method like hexToUtf8
+         const message = utils.toUtf8String(requestParamsMessage);
+ 
+         // sign the message
+         // process of signing transaction link to intu
+         const signedMessage = await wallet.signMessage(message);
+ 
+         const response = {
+           id,
+           result: signedMessage,
+           jsonrpc: "2.0"
+         };
+ 
+         await Client.respondSessionRequest({
+           topic,
+           response
+         });
+ 
+       });
+     } catch (e) {
+       console.log(e);
+     }
+   }
+  */
 
 
   useEffect(() => {
